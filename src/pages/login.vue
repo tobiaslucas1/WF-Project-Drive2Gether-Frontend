@@ -35,7 +35,7 @@
 
         if (response.ok) {
             localStorage.setItem('currentUser', JSON.stringify(result.user));
-            window.location.href = '/';
+            window.location.href = '/trips';
         } else {
             statusMessage.value = result.status || 'Login mislukt';
 
