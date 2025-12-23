@@ -2,6 +2,10 @@
     //------ imports ------
     import { ref, onMounted } from 'vue';
     import { useRouter } from 'vue-router'; 
+
+    // ------ activeer de router ------
+    const router = useRouter();
+
     //------- data -------
     const trips = ref([]);
     const loading = ref(true);
@@ -28,6 +32,9 @@
         });
     }; 
 
+    const goToTrip = (tripId) => {
+        router.push(`/trips/${tripId}`);
+    };
     
 </script>
 

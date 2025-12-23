@@ -7,6 +7,7 @@ import Messages from '../pages/messages.vue';
 import Register from '../pages/register.vue';
 import Login from '../pages/login.vue';
 import Trips from '../pages/trips.vue';  
+import TripDetails from '../pages/TripDetails.vue';
 
 // ------ routes ------
 const routes = [
@@ -34,6 +35,11 @@ const routes = [
         path : '/trips',
         name : 'trips',
         component : Trips,    
+    },
+    {
+        path : '/trips/:id',
+        name : 'TripDetails',
+        component : TripDetails,    
     }
 ];
 
