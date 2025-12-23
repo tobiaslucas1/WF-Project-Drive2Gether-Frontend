@@ -1,25 +1,16 @@
 <script setup>
+    //------ imports ------
     import { ref, onMounted } from 'vue';
-    import { useRoute } from 'vue-router';
+    import { useRoute, useRouter } from 'vue-router';
 
+    // ------ activeer de router ------
+    const router = useRouter();
     const route = useRoute();
+    //------- data -------
+    
     const trip = ref(null);
-  
-    const formatDate = (dateString) => {
-        if (!dateString) return '';
-        const datePart = new Date(dateString).toLocaleDateString('nl-NL', { 
-            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-        });
-        const timePart = new Date(dateString).toLocaleTimeString('nl-NL', {
-            hour: '2-digit', minute: '2-digit'
-        });
-        return { date: datePart, time: timePart }; 
-    };
 
-    const bookTrip = () => {
-        alert("Boeking functionaliteit komt in de volgende stap!");
-    };
-
+    //------ lifecycles ------
     onMounted(async () => {
         const tripId = route.params.id;
         try {
@@ -33,6 +24,50 @@
             loading.value = false;
         }
     });
+    
+    // ------- methods -------
+    const formatDate = (dateString) => {
+        if (!dateString) return '';
+        const datePart = new Date(dateString).toLocaleDateString('nl-NL', { 
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        });
+        const timePart = new Date(dateString).toLocaleTimeString('nl-NL', {
+            hour: '2-digit', minute: '2-digit'
+        });
+        return { date: datePart, time: timePart }; 
+    };
+
+    const bookTrip = async () => {
+        const currentUserStr = localStorage.getItem('currentUser');
+
+        if (!currentUserStr) {
+            alert("Je moet ingelogd zijn om te boeken!");
+            router.push('/login'); 
+            return;
+        }
+
+        const currentUser = JSON.parse(currentUserStr);
+        
+        const response = await fetch('http://localhost:3000/bookings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                TripID: trip.value.TripID,
+                PassengerID: currentUser.UserID
+            })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            router.push('/BookingSuccess');
+        } 
+        else {
+            alert("Boeking mislukt: " + result.message);
+        }
+    };
+
+    
 </script>
 
 <template>

@@ -50,6 +50,7 @@
 
 
 <template>
+  
     <div class="login-container">
         <h1>Inloggen</h1>
         
@@ -79,6 +80,7 @@
 
 
 <style scoped>
+    
     .login-container {
         max-width: 400px;
         margin: 50px auto;

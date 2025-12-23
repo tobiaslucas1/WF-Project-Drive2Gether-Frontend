@@ -8,9 +8,15 @@ import Login from '../pages/login.vue';
 import Register from '../pages/register.vue';
 import Trips from '../pages/trips.vue';  
 import TripDetails from '../pages/TripDetails.vue';
+import BookingSuccess from '../pages/BookingSuccess.vue';
 
 // ------ routes ------
 const routes = [
+    {
+        path : '/booking-success',
+        name : 'BookingSuccess',
+        component : BookingSuccess,
+    },
     {
         path:  '/',
         name:  'Home',
