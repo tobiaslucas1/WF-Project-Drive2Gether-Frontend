@@ -49,7 +49,7 @@
 
         <!-- De Lijst met Ritten -->
         <div class="trips-grid">
-            <div v-for="trip in trips" :key="trip.TripID" class="trip-card">
+            <div v-for="trip in trips" :key="trip.TripID" class="trip-card" @click="goToTrip(trip.TripID)">
                 
                 <div class="card-header">
                     <span class="date">📅 {{ formatDate(trip.DepartureTime) }}</span>

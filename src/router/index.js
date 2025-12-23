@@ -4,8 +4,8 @@ import { createRouter, createWebHistory } from 'vue-router';
 // ------ pages ------
 import Home from '../pages/home.vue';
 import Messages from '../pages/messages.vue';
-import Register from '../pages/register.vue';
 import Login from '../pages/login.vue';
+import Register from '../pages/register.vue';
 import Trips from '../pages/trips.vue';  
 import TripDetails from '../pages/TripDetails.vue';
 
