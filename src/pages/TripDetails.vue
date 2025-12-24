@@ -7,7 +7,8 @@
     const router = useRouter();
     const route = useRoute();
     //------- data -------
-    
+    const loading = ref(true); 
+
     const trip = ref(null);
 
     //------ lifecycles ------

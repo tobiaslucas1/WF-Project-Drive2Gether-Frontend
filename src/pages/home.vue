@@ -25,7 +25,7 @@
                 
                 <div class="hero-buttons">
                     <RouterLink to="/trips" class="btn btn-primary">Zoek een rit</RouterLink>
-                    <RouterLink to="/login" class="btn btn-secondary">Rit aanbieden</RouterLink>
+                    <RouterLink to="/create-ride" class="btn btn-secondary">Rit aanbieden</RouterLink>
                 </div>
             </div>
             <div class="hero-image">

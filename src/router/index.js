@@ -9,6 +9,9 @@ import Register from '../pages/register.vue';
 import Trips from '../pages/trips.vue';  
 import TripDetails from '../pages/TripDetails.vue';
 import BookingSuccess from '../pages/BookingSuccess.vue';
+import Settings from '../pages/settings.vue';
+import CreateRide from '../pages/CreateRide.vue';
+import MyTrips from '../pages/MyTrips.vue';
 
 // ------ routes ------
 const routes = [
@@ -16,6 +19,11 @@ const routes = [
         path : '/booking-success',
         name : 'BookingSuccess',
         component : BookingSuccess,
+    },
+    {
+        path : '/create-ride',
+        name : 'CreateRide',
+        component : CreateRide,
     },
     {
         path:  '/',
@@ -33,9 +41,19 @@ const routes = [
         component: Messages,
     },
     {
+        path : '/my-trips',
+        name : 'MyTrips',
+        component : MyTrips,
+    },
+    {
         path: '/register',
         name: 'Register',
         component: Register,
+    },
+    {
+        path : '/settings',
+        name : 'Settings',
+        component : Settings,
     },
     {
         path : '/trips',
