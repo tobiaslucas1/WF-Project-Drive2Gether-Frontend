@@ -58,36 +58,25 @@
             PasswordHash: Password.value,
         };
         
-        console.log('Versturen naar:', API_URL);
-
-        try {
-            const response = await fetch(API_URL, { 
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(registrationData)
-            });
-
-            const result = await response.json();
-
-            if (response.ok && !result.status) {
-                console.log('Registratie succesvol!', result);
-                statusMessage.value = 'Account succesvol aangemaakt!';
-                statusType.value = 'success';
-                window.location.href = '/login';
-            } else {
-                console.error('Registratie fout:', result);
-                statusMessage.value = 'Fout: ' + (result.status || 'Onbekende fout bij de server');
-                statusType.value = 'error';
-            }
-        } catch (error) {
-            console.error('Netwerkfout:', error);
-            statusMessage.value = 'Kan geen verbinding maken met de server.';
+        const response = await fetch(API_URL, { 
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(registrationData)
+        });
+        const result = await response.json();
+        if (response.ok && !result.status) {
+            console.log('Registratie succesvol!', result);
+            statusMessage.value = 'Account succesvol aangemaakt!';
+            statusType.value = 'success';
+            window.location.href = '/login';
+        } else {
+            console.error('Registratie fout:', result);
+            statusMessage.value = 'Fout: ' + (result.status || 'Onbekende fout bij de server');
             statusType.value = 'error';
-        } finally {
-            isSubmitting.value = false;
         }
+      
     };
 </script>
 

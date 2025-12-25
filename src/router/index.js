@@ -12,6 +12,7 @@ import BookingSuccess from '../pages/BookingSuccess.vue';
 import Settings from '../pages/settings.vue';
 import CreateRide from '../pages/CreateRide.vue';
 import MyTrips from '../pages/MyTrips.vue';
+import LiveTrip from '@/pages/LiveTrip.vue';
 
 // ------ routes ------
 const routes = [
@@ -29,6 +30,11 @@ const routes = [
         path:  '/',
         name:  'Home',
         component: Home,
+    },
+    { 
+        path: '/live/:id',  
+        name: 'LiveTrip', 
+        component: LiveTrip 
     },
     {
         path:  '/login',

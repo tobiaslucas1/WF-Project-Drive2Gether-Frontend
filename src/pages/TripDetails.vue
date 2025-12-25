@@ -61,7 +61,7 @@
         });
         const result = await response.json();
         if (response.ok) {
-            router.push('/BookingSuccess');
+            router.push('/booking-success');
         } 
         else {
             alert("Boeking mislukt: " + result.message);

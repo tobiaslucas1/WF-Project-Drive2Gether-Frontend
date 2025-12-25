@@ -42,18 +42,16 @@
     <div class="container">
         <h1>Alle Beschikbare Ritten</h1>
 
-        <!-- Lege lijst melding -->
         <div v-if="trips.length === 0" class="status-msg">
             Er zijn momenteel geen ritten gepland.
         </div>
 
-        <!-- De Lijst met Ritten -->
         <div class="trips-grid">
             <div v-for="trip in trips" :key="trip.TripID" class="trip-card" @click="goToTrip(trip.TripID)">
                 
                 <div class="card-header">
                     <span class="date">📅 {{ formatDate(trip.DepartureTime) }}</span>
-                    <span class="price">€ {{ trip.Price }}</span>
+                    <span class="price">€ {{ trip.Price }} pp</span>
                 </div>
 
                 <div class="route">
