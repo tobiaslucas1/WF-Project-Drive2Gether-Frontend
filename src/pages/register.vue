@@ -1,293 +1,238 @@
+<!--
+    Page: Register
+    Description: Registreert een nieuwe gebruiker en optioneel een auto.
+-->
+
 <script setup>
-    //------ imports ------
-    import { ref, computed } from 'vue';
+import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
 
-    //------- data -------
-    const FirstName = ref('');
-    const LastName = ref('');
-    const dateOfBirth = ref('');
-    const PhoneNumber = ref('');
-    const Email = ref('');
-    const Adress = ref('');
-    const Password = ref('');
-    
-    const statusMessage = ref('');
-    const statusType = ref(''); 
-    const isSubmitting = ref(false);
+const router = useRouter();
 
-    //------ settings ------
-    const API_URL = 'http://localhost:3000/users'; 
+// --- DATA ---
+// Persoonlijke info
+const firstName = ref('');
+const lastName = ref('');
+const email = ref('');
+const password = ref('');
+const phone = ref('');
+const dob = ref('');
+const address = ref('');
 
-    //------ computed ------
-    
-    const maxDate = computed(() => {
-        const today = new Date();
-        today.setFullYear(today.getFullYear() - 18);
-        return today.toISOString().split('T')[0];
-    });
+// Auto info
+const hasCar = ref(false);
+const carBrand = ref('');
+const carModel = ref('');
+const carPlate = ref('');
+const carSeats = ref(4);
+const carColor = ref('');
 
-    //------ methods ------
-    const handleRegister = async () => {
-        statusMessage.value = '';
-        isSubmitting.value = true;
+// UI state
+const isLoading = ref(false);
+const statusMessage = ref('');
+const statusType = ref('');
 
-        if (
-            !FirstName.value.trim() || 
-            !LastName.value.trim() || 
-            !dateOfBirth.value || 
-            !PhoneNumber.value.trim() || 
-            !Email.value.trim() || 
-            !Password.value
-        ) {
-            statusMessage.value = 'Vul alle verplichte velden in.';
-            statusType.value = 'error';
-            isSubmitting.value = false;
-            return;
-        }
+// --- COMPUTED ---
+// 18+ check voor datum kiezer
+const maxDate = computed(() => {
+    const today = new Date();
+    today.setFullYear(today.getFullYear() - 18);
+    return today.toISOString().split('T')[0];
+});
 
-        const birthDate = new Date(dateOfBirth.value);
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
+// --- METHODS ---
+const handleRegister = async () => {
+    statusMessage.value = '';
+    isLoading.value = true;
+
+    // 1. Data voorbereiden zoals de backend het verwacht (hoofdletters!)
+    const payload = {
+        FirstName: firstName.value,
+        LastName: lastName.value,
+        Email: email.value,
+        PasswordHash: password.value,
+        PhoneNumber: phone.value,
+        DateOfBirth: dob.value,
+        Address: address.value,
         
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
+        // Stuur 'Car' object alleen mee als checkbox aan staat
+        Car: hasCar.value ? {
+            Brand: carBrand.value,
+            Model: carModel.value,
+            LicensePlate: carPlate.value,
+            Seats: parseInt(carSeats.value),
+            Color: carColor.value
+        } : null
+    };
 
-        if (age < 18) {
-            statusMessage.value = 'Je moet minimaal 18 jaar zijn om een account aan te maken.';
-            statusType.value = 'error';
-            isSubmitting.value = false;
-            return;
-        }
-
-        if (!/^\d+$/.test(PhoneNumber.value.trim())) {
-            statusMessage.value = 'Telefoonnummer mag alleen uit cijfers bestaan (geen streepjes of spaties).';
-            statusType.value = 'error';
-            isSubmitting.value = false;
-            return;
-        }
-
-        const registrationData = {
-            FirstName: FirstName.value.trim(),
-            LastName: LastName.value.trim(),
-            DateOfBirth: dateOfBirth.value,
-            PhoneNumber: PhoneNumber.value.trim(),
-            Email: Email.value.trim(),
-            Address: Adress.value.trim(), 
-            PasswordHash: Password.value,
-        };
-        
-    
-        const response = await fetch(API_URL, { 
+    try {
+        // 2. Versturen naar backend
+        const response = await fetch('http://localhost:3000/users', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(registrationData)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
-        const responseText = await response.text();
+
+        const data = await response.json();
 
         if (response.ok) {
-            console.log('Registratie succesvol!', result);
-            statusMessage.value = 'Account succesvol aangemaakt!';
+            // 3. Succes! We loggen de gebruiker direct in
+            localStorage.setItem('currentUser', JSON.stringify(data));
+            
+            statusMessage.value = 'Account succesvol aangemaakt! Je wordt doorgestuurd...';
             statusType.value = 'success';
+            
             setTimeout(() => {
-                window.location.href = '/login';
+                router.push('/my-trips'); 
             }, 1500);
-        } 
-    };
+        } else {
+            statusMessage.value = data.status || data.message || 'Registratie mislukt.';
+            statusType.value = 'error';
+        }
+    } catch (error) {
+        console.error(error);
+        statusMessage.value = 'Kan geen verbinding maken met de server.';
+        statusType.value = 'error';
+    } finally {
+        isLoading.value = false;
+    }
+};
 </script>
 
 <template>
     <div class="register-container">
-        <h1>Account Aanmaken</h1>
-        
-        <div class="section">
-            <h3>Persoonlijke gegevens</h3>
-
-            <div class="form-row">
-                <div class="field half">
-                    <label>Voornaam *</label>
-                    <input v-model="FirstName" type="text" placeholder="Jan" required>
-                </div>
-                <div class="field half">
-                    <label>Achternaam *</label>
-                    <input v-model="LastName" type="text" placeholder="Jansen" required>
-                </div>
-            </div>
-
-            <div class="field">
-                <label>Geboortedatum *</label>
-                <input 
-                    v-model="dateOfBirth" 
-                    type="date" 
-                    :max="maxDate"
-                    required
-                >
-                <small style="color: #718096; display: block; margin-top: 5px;">Je moet 18+ zijn.</small>
-            </div>
-
-            <div class="field">
-                <label>Telefoonnummer *</label> 
-                <input v-model="PhoneNumber" type="tel" placeholder="0612345678" required>
-            </div>
-
-            <div class="field">
-                <label>E-mail *</label>
-                <input v-model="Email" type="email" placeholder="jan@example.com" required>
-            </div>
+        <div class="card">
+            <h1>Account Aanmaken</h1>
             
-            <div class="field">
-                <label>Adres</label>
-                <input v-model="Adress" type="text" placeholder="Straatnaam 1, Stad">
-            </div>
+            <form @submit.prevent="handleRegister">
+                
+                <!-- Sectie 1: Persoonlijk -->
+                <div class="section-title">👤 Persoonlijke Gegevens</div>
+                
+                <div class="row">
+                    <div class="field">
+                        <label>Voornaam</label>
+                        <input v-model="firstName" type="text" placeholder="Jan" required>
+                    </div>
+                    <div class="field">
+                        <label>Achternaam</label>
+                        <input v-model="lastName" type="text" placeholder="Jansen" required>
+                    </div>
+                </div>
 
-            <div class="field">
-                <label>Wachtwoord *</label>
-                <input v-model="Password" type="password" placeholder="Kies een veilig wachtwoord" required>
-            </div>
-        </div>
-        
-        <div v-if="statusMessage" :class="['message-box', statusType]">
-            {{ statusMessage }}
-        </div>
+                <div class="field">
+                    <label>E-mailadres</label>
+                    <input v-model="email" type="email" placeholder="jan@voorbeeld.nl" required>
+                </div>
 
-        <button class="save-btn" @click="handleRegister" :disabled="isSubmitting">
-            {{ isSubmitting ? 'Bezig met opslaan...' : 'Registreren' }}
-        </button>
-        
-        <p class="login-link">
-            Al een account? <RouterLink to="/login">Log hier in</RouterLink>
-        </p>
+                <div class="field">
+                    <label>Wachtwoord</label>
+                    <input v-model="password" type="password" placeholder="Kies een sterk wachtwoord" required>
+                </div>
+
+                <div class="row">
+                    <div class="field">
+                        <label>Geboortedatum (18+)</label>
+                        <input v-model="dob" type="date" :max="maxDate" required>
+                    </div>
+                    <div class="field">
+                        <label>Telefoonnummer</label>
+                        <input v-model="phone" type="tel" placeholder="0612345678">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Adres</label>
+                    <input v-model="address" type="text" placeholder="Straatnaam 1, Stad">
+                </div>
+
+                <hr class="divider">
+
+                <!-- Sectie 2: Auto Toggle -->
+                <div class="car-toggle">
+                    <input type="checkbox" id="carCheck" v-model="hasCar">
+                    <label for="carCheck">Ik heb een auto en wil ritten aanbieden 🚗</label>
+                </div>
+
+                <!-- Sectie 3: Auto Gegevens (Alleen als checkbox aan is) -->
+                <div v-if="hasCar" class="car-section animate-slide">
+                    <div class="section-title">🚘 Auto Gegevens</div>
+                    
+                    <div class="row">
+                        <div class="field">
+                            <label>Merk</label>
+                            <input v-model="carBrand" placeholder="bv. Volkswagen">
+                        </div>
+                        <div class="field">
+                            <label>Model</label>
+                            <input v-model="carModel" placeholder="bv. Golf">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="field">
+                            <label>Kenteken</label>
+                            <input v-model="carPlate" placeholder="1-ABC-123">
+                        </div>
+                        <div class="field">
+                            <label>Kleur</label>
+                            <input v-model="carColor" placeholder="Zwart">
+                        </div>
+                        <div class="field small">
+                            <label>Stoelen</label>
+                            <input v-model="carSeats" type="number" min="1" max="9">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Berichten -->
+                <div v-if="statusMessage" :class="['message-box', statusType]">
+                    {{ statusMessage }}
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn-register" :disabled="isLoading">
+                    {{ isLoading ? 'Even geduld...' : 'Registreren' }}
+                </button>
+
+                <p class="login-link">
+                    Heb je al een account? <RouterLink to="/login">Log hier in</RouterLink>
+                </p>
+
+            </form>
+        </div>
     </div>
 </template>
 
 <style scoped>
-    .register-container {
-        max-width: 500px;
-        margin: 40px auto;
-        padding: 40px;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        background-color: white;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-
-    h1 {
-        text-align: center;
-        color: #2d3748;
-        margin-bottom: 30px;
-        font-size: 1.8rem;
-    }
-
-    h3 {
-        color: #718096;
-        font-size: 1rem;
-        border-bottom: 1px solid #e2e8f0;
-        padding-bottom: 10px;
-        margin-bottom: 20px;
-    }
-
-    .section {
-        margin-bottom: 20px;
-    }
-
-    .form-row {
-        display: flex;
-        gap: 15px;
-    }
-
-    .field {
-        margin-bottom: 20px;
-    }
-
-    .field.half {
-        flex: 1;
-    }
-
-    label {
-        display: block;
-        margin-bottom: 8px;
-        font-weight: 600;
-        color: #4a5568;
-        font-size: 0.95rem;
-    }
-
-    input {
-        width: 100%;
-        padding: 12px;
-        box-sizing: border-box;
-        border: 1px solid #cbd5e0;
-        border-radius: 6px;
-        font-size: 1rem;
-        transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    input:focus {
-        outline: none;
-        border-color: #4299e1;
-        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
-    }
-
-    .save-btn {
-        width: 100%;
-        padding: 14px;
-        background-color: #3182ce;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 1rem;
-        font-weight: bold;
-        transition: background-color 0.2s;
-        margin-top: 10px;
-    }
-
-    .save-btn:hover {
-        background-color: #2b6cb0;
-    }
-
-    .save-btn:disabled {
-        background-color: #a0aec0;
-        cursor: not-allowed;
-    }
-
-    .message-box {
-        padding: 15px;
-        margin-bottom: 20px;
-        border-radius: 6px;
-        text-align: center;
-        font-size: 0.95rem;
-    }
-
-    .message-box.success {
-        background-color: #c6f6d5;
-        color: #22543d;
-        border: 1px solid #9ae6b4;
-    }
-
-    .message-box.error {
-        background-color: #fed7d7;
-        color: #822727;
-        border: 1px solid #feb2b2;
-    }
-
-    .login-link {
-        text-align: center;
-        margin-top: 25px;
-        color: #718096;
-        font-size: 0.9rem;
-    }
-
-    .login-link a {
-        color: #3182ce;
-        text-decoration: none;
-        font-weight: 600;
-    }
-
-    .login-link a:hover {
-        text-decoration: underline;
-    }
+.register-container {
+    display: flex; justify-content: center; padding: 40px 20px;
+    font-family: 'Segoe UI', sans-serif; background-color: #f7fafc; min-height: 100vh;
+}
+.card {
+    background: white; width: 100%; max-width: 500px; padding: 30px;
+    border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;
+}
+h1 { text-align: center; color: #2d3748; margin-bottom: 25px; }
+.section-title { font-size: 0.9rem; text-transform: uppercase; color: #718096; font-weight: bold; margin-bottom: 10px; }
+.row { display: flex; gap: 15px; }
+.field { margin-bottom: 15px; flex: 1; }
+.field.small { flex: 0.5; }
+label { display: block; margin-bottom: 5px; font-size: 0.9rem; font-weight: 600; color: #4a5568; }
+input { width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+input:focus { border-color: #3182ce; outline: none; box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1); }
+.divider { border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+.car-toggle { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; background: #ebf8ff; padding: 15px; border-radius: 8px; cursor: pointer; }
+.car-toggle label { margin: 0; cursor: pointer; color: #2b6cb0; font-weight: bold; }
+.car-section { background: #f7fafc; padding: 15px; border-radius: 8px; border: 1px solid #edf2f7; margin-bottom: 20px; }
+.btn-register { width: 100%; padding: 12px; background-color: #48bb78; color: white; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: background 0.2s; margin-top: 10px; }
+.btn-register:hover { background-color: #38a169; }
+.btn-register:disabled { background-color: #a0aec0; cursor: not-allowed; }
+.message-box { padding: 15px; margin-bottom: 20px; border-radius: 6px; text-align: center; }
+.message-box.success { background-color: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
+.message-box.error { background-color: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
+.login-link { text-align: center; margin-top: 20px; font-size: 0.9rem; color: #718096; }
+.login-link a { color: #3182ce; font-weight: bold; text-decoration: none; }
+.animate-slide { animation: slideDown 0.3s ease-out; }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 </style>
