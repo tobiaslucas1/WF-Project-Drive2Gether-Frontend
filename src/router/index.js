@@ -13,6 +13,7 @@ import Settings from '../pages/settings.vue';
 import CreateRide from '../pages/CreateRide.vue';
 import MyTrips from '../pages/MyTrips.vue';
 import LiveTrip from '@/pages/LiveTrip.vue';
+import MyReviews from '@/pages/MyReviews.vue';
 
 // ------ routes ------
 const routes = [
@@ -45,6 +46,11 @@ const routes = [
         path:  '/messages',
         name:  'Messages',
         component: Messages,
+    },
+    {
+        path : '/my-reviews',
+        name : 'MyReviews',
+        component : MyReviews,
     },
     {
         path : '/my-trips',

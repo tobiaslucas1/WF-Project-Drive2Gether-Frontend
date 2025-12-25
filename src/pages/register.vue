@@ -1,6 +1,6 @@
 <script setup>
     //------ imports ------
-    import { ref } from 'vue';
+    import { ref, computed } from 'vue';
 
     //------- data -------
     const FirstName = ref('');
@@ -15,10 +15,16 @@
     const statusType = ref(''); 
     const isSubmitting = ref(false);
 
-    
-
     //------ settings ------
     const API_URL = 'http://localhost:3000/users'; 
+
+    //------ computed ------
+    
+    const maxDate = computed(() => {
+        const today = new Date();
+        today.setFullYear(today.getFullYear() - 18);
+        return today.toISOString().split('T')[0];
+    });
 
     //------ methods ------
     const handleRegister = async () => {
@@ -39,7 +45,22 @@
             return;
         }
 
-        // De regex /^\d+$/ start einde getallen
+        const birthDate = new Date(dateOfBirth.value);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+
+        if (age < 18) {
+            statusMessage.value = 'Je moet minimaal 18 jaar zijn om een account aan te maken.';
+            statusType.value = 'error';
+            isSubmitting.value = false;
+            return;
+        }
+
         if (!/^\d+$/.test(PhoneNumber.value.trim())) {
             statusMessage.value = 'Telefoonnummer mag alleen uit cijfers bestaan (geen streepjes of spaties).';
             statusType.value = 'error';
@@ -47,7 +68,6 @@
             return;
         }
 
-        // verzamel data
         const registrationData = {
             FirstName: FirstName.value.trim(),
             LastName: LastName.value.trim(),
@@ -58,6 +78,7 @@
             PasswordHash: Password.value,
         };
         
+    
         const response = await fetch(API_URL, { 
             method: 'POST',
             headers: {
@@ -65,18 +86,16 @@
             },
             body: JSON.stringify(registrationData)
         });
-        const result = await response.json();
-        if (response.ok && !result.status) {
+        const responseText = await response.text();
+
+        if (response.ok) {
             console.log('Registratie succesvol!', result);
             statusMessage.value = 'Account succesvol aangemaakt!';
             statusType.value = 'success';
-            window.location.href = '/login';
-        } else {
-            console.error('Registratie fout:', result);
-            statusMessage.value = 'Fout: ' + (result.status || 'Onbekende fout bij de server');
-            statusType.value = 'error';
-        }
-      
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1500);
+        } 
     };
 </script>
 
@@ -100,7 +119,13 @@
 
             <div class="field">
                 <label>Geboortedatum *</label>
-                <input v-model="dateOfBirth" type="date" required>
+                <input 
+                    v-model="dateOfBirth" 
+                    type="date" 
+                    :max="maxDate"
+                    required
+                >
+                <small style="color: #718096; display: block; margin-top: 5px;">Je moet 18+ zijn.</small>
             </div>
 
             <div class="field">
@@ -124,7 +149,6 @@
             </div>
         </div>
         
-        <!-- Error/Success Message Box -->
         <div v-if="statusMessage" :class="['message-box', statusType]">
             {{ statusMessage }}
         </div>

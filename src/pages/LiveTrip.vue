@@ -12,6 +12,12 @@ const currentUser = ref(null);
 const loading = ref(true);
 const pollingInterval = ref(null);
 
+// --- REVIEW STATE ---
+const showReviewForm = ref(false);
+const reviewRating = ref(0);
+const reviewComment = ref('');
+const reviewSubmitted = ref(false);
+
 // --- LIFECYCLE ---
 onMounted(async () => {
     const userStr = localStorage.getItem('currentUser');
@@ -20,12 +26,11 @@ onMounted(async () => {
 
     await fetchTripData();
 
-    // Start Polling: Check elke 5 seconden of de status is veranderd
-    pollingInterval.value = setInterval(fetchTripData, 5000);
+    // refreshed elke minuut
+    pollingInterval.value = setInterval(fetchTripData, 60000);
 });
 
 onUnmounted(() => {
-    // Stop de timer als we de pagina verlaten
     if (pollingInterval.value) clearInterval(pollingInterval.value);
 });
 
@@ -34,26 +39,26 @@ const fetchTripData = async () => {
     try {
         const tripId = route.params.id;
         
-        // 1. Haal Rit op
         const res = await fetch(`http://localhost:3000/trips/${tripId}`);
         if (res.ok) {
             trip.value = await res.json();
             
-            // Als rit gecanceld is, stuur terug
             if (trip.value.TripStatus === 'Cancelled') {
                 alert("Deze rit is geannuleerd.");
                 router.push('/my-trips');
+                return;
             }
         }
 
-        // 2. Haal Chauffeur op (voor passagier weergave)
         if (trip.value.DriverID) {
             const driverRes = await fetch(`http://localhost:3000/users/${trip.value.DriverID}`);
-            if (driverRes.ok) driver.value = await driverRes.json();
+            if (driverRes.ok) {
+                driver.value = await driverRes.json();
+            } else {
+                driver.value = { FirstName: 'Onbekende', LastName: 'Chauffeur' };
+            }
         }
 
-        // 3. Haal Passagiers op (voor chauffeur weergave)
-        // Alleen nodig als IK de chauffeur ben
         if (isDriver.value) {
             const bookingsRes = await fetch(`http://localhost:3000/bookings?TripID=${tripId}`);
             if (bookingsRes.ok) {
@@ -89,11 +94,42 @@ const endTrip = async () => {
         });
 
         if (response.ok) {
-            // Update lokaal direct
             trip.value.TripStatus = 'Completed';
         }
     } catch (e) {
         alert("Kon rit niet beëindigen.");
+    }
+};
+
+const submitReview = async () => {
+    if (reviewRating.value === 0) {
+        alert("Selecteer alsjeblieft een aantal sterren.");
+        return;
+    }
+
+    try {
+        const response = await fetch('http://localhost:3000/reviews', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                TripID: trip.value.TripID,
+                ReviewerID: currentUser.value.UserID,
+                ReviewedID: trip.value.DriverID,
+                Rating: reviewRating.value,
+                Comment: reviewComment.value,
+                ReviewType: 'Driver'
+            })
+        });
+
+        if (response.ok) {
+            reviewSubmitted.value = true;
+            showReviewForm.value = false;
+        } else {
+            alert("Er ging iets mis bij het opslaan van de review.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Kon review niet versturen.");
     }
 };
 
@@ -124,15 +160,12 @@ const timeDisplay = computed(() => {
 
         <div v-else-if="trip" class="dashboard">
             
-            <!-- HEADER: Status Balk -->
             <div :class="['status-bar', isCompleted ? 'completed' : 'active']">
                 <div class="pulse-icon" v-if="!isCompleted">🔴 LIVE</div>
                 <div class="pulse-icon" v-else>🏁 FINISH</div>
-                
                 <h2>{{ isCompleted ? 'Aangekomen!' : 'Onderweg' }}</h2>
             </div>
 
-            <!-- HOOFD CARD -->
             <div class="card main-card">
                 <div class="route-visual">
                     <div class="point">
@@ -151,9 +184,7 @@ const timeDisplay = computed(() => {
                 </div>
             </div>
 
-            <!-- INFO CARD (Verschilt per rol) -->
-            
-            <!-- SCENARIO 1: Ik ben CHAUFFEUR -->
+            <!-- Driver -->
             <div v-if="isDriver" class="card info-card">
                 <h3>👮‍♂️ Jouw Passagiers</h3>
                 <ul class="passenger-list">
@@ -173,7 +204,7 @@ const timeDisplay = computed(() => {
                 </div>
             </div>
 
-            <!-- SCENARIO 2: Ik ben PASSAGIER -->
+            <!--  PASSAGIER -->
             <div v-else class="card info-card">
                 <h3>🚗 Jouw Chauffeur</h3>
                 <div v-if="driver" class="driver-details">
@@ -187,11 +218,52 @@ const timeDisplay = computed(() => {
                     </div>
                 </div>
 
+                <!-- EINDE RIT  -->
                 <div v-if="isCompleted" class="passenger-finish">
                     <h3>We zijn er! 🎉</h3>
-                    <p>Bedankt voor het meerijden.</p>
-                    <button class="btn-back" @click="goBack">Terug naar Ritten</button>
-                    <!-- Hier zou later een Review knop kunnen komen -->
+                    
+                    <!--  Review button -->
+                    <div v-if="!reviewSubmitted && !showReviewForm">
+                        <p>Bedankt voor het meerijden.</p>
+                        <button class="btn-review" @click="showReviewForm = true">⭐ Schrijf een Review</button>
+                        <button class="btn-back" @click="goBack">Terug naar Ritten</button>
+                    </div>
+
+                    <!--  Het Review Formulier -->
+                    <div v-else-if="showReviewForm" class="review-form">
+                        <h4>Hoe was je rit met {{ driver.FirstName }}?</h4>
+                        
+                        <!-- Sterren Selectie -->
+                        <div class="star-rating">
+                            <span 
+                                v-for="star in 5" 
+                                :key="star" 
+                                class="star" 
+                                :class="{ filled: star <= reviewRating }"
+                                @click="reviewRating = star"
+                            >★</span>
+                        </div>
+                        <p class="rating-text" v-if="reviewRating > 0">{{ reviewRating }}/5 Sterren</p>
+
+                        <!-- Commentaar -->
+                        <textarea 
+                            v-model="reviewComment" 
+                            placeholder="Schrijf een opmerking (optioneel)..."
+                            rows="3"
+                        ></textarea>
+
+                        <div class="review-actions">
+                            <button class="btn-cancel" @click="showReviewForm = false">Annuleren</button>
+                            <button class="btn-submit" @click="submitReview">Versturen</button>
+                        </div>
+                    </div>
+
+                    <!-- 3. Bedankt bericht -->
+                    <div v-else class="review-thanks">
+                        <p>Bedankt voor je feedback! ⭐</p>
+                        <button class="btn-back" @click="goBack">Terug naar Ritten</button>
+                    </div>
+
                 </div>
                 <div v-else class="passenger-waiting">
                     <p>Geniet van de rit!</p>
@@ -242,10 +314,27 @@ const timeDisplay = computed(() => {
 .avatar { font-size: 2rem; background: #edf2f7; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
 .car-info { font-size: 0.9rem; color: #4a5568; margin-top: 2px; }
 .plate { background: #ffcc00; color: black; padding: 0 4px; border-radius: 3px; font-weight: bold; font-size: 0.8rem; border: 1px solid #000; }
-.passenger-finish { text-align: center; margin-top: 20px; background: #f0fff4; padding: 20px; border-radius: 8px; }
+.passenger-finish { text-align: center; margin-top: 20px; background: #f0fff4; padding: 20px; border-radius: 8px; border: 1px solid #c6f6d5; }
 
-.btn-back { width: 100%; background: #edf2f7; color: #2d3748; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+/* REVIEW STYLES */
+.btn-review { width: 100%; background: #ecc94b; color: #744210; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+.btn-review:hover { background: #d69e2e; }
+
+.review-form { background: white; padding: 10px; border-radius: 8px; }
+.star-rating { font-size: 2.5rem; color: #cbd5e0; cursor: pointer; user-select: none; }
+.star { transition: color 0.2s; }
+.star.filled { color: #ecc94b; } 
+.star:hover { color: #f6e05e; }
+
+.rating-text { font-weight: bold; color: #744210; margin-top: -5px; margin-bottom: 10px; }
+
+textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 6px; box-sizing: border-box; margin-bottom: 10px; }
+.review-actions { display: flex; gap: 10px; }
+.btn-submit { flex: 1; background: #38a169; color: white; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+.btn-cancel { flex: 1; background: #edf2f7; color: #4a5568; padding: 10px; border: none; border-radius: 6px; cursor: pointer; }
+
+.review-thanks { padding: 20px; font-size: 1.2rem; font-weight: bold; color: #38a169; }
+
+.btn-back { width: 100%; background: #edf2f7; color: #2d3748; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
 .btn-back:hover { background: #e2e8f0; }
 </style>
-
-

@@ -141,6 +141,11 @@
                     <div class="info-row"><strong>Naam:</strong> {{ user.FirstName }} {{ user.LastName }}</div>
                     <div class="info-row"><strong>Email:</strong> {{ user.Email }}</div>
                     <div class="info-row"><strong>Tel:</strong> {{ user.PhoneNumber }}</div>
+                    <div class="action-row">
+                        <button class="btn-reviews" @click="router.push('/my-reviews')">
+                            ⭐ Bekijk mijn Reviews
+                        </button>
+                    </div>
                 </div>
 
                 <div class="section car-section">
