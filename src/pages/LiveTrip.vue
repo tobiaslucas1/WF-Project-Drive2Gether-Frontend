@@ -1,10 +1,11 @@
 <script setup>
+// --- imports ---
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
 const router = useRouter();
-
+// --- data ---
 const trip = ref(null);
 const driver = ref(null);
 const passengers = ref([]);
@@ -26,7 +27,7 @@ onMounted(async () => {
 
     await fetchTripData();
 
-    // refreshed elke minuut
+    // refreshed every minute
     pollingInterval.value = setInterval(fetchTripData, 60000);
 });
 
@@ -204,7 +205,7 @@ const timeDisplay = computed(() => {
                 </div>
             </div>
 
-            <!--  PASSAGIER -->
+            <!--  Passenger -->
             <div v-else class="card info-card">
                 <h3>🚗 Jouw Chauffeur</h3>
                 <div v-if="driver" class="driver-details">
@@ -218,22 +219,18 @@ const timeDisplay = computed(() => {
                     </div>
                 </div>
 
-                <!-- EINDE RIT  -->
                 <div v-if="isCompleted" class="passenger-finish">
                     <h3>We zijn er! 🎉</h3>
                     
-                    <!--  Review button -->
                     <div v-if="!reviewSubmitted && !showReviewForm">
                         <p>Bedankt voor het meerijden.</p>
                         <button class="btn-review" @click="showReviewForm = true">⭐ Schrijf een Review</button>
                         <button class="btn-back" @click="goBack">Terug naar Ritten</button>
                     </div>
 
-                    <!--  Het Review Formulier -->
                     <div v-else-if="showReviewForm" class="review-form">
                         <h4>Hoe was je rit met {{ driver.FirstName }}?</h4>
                         
-                        <!-- Sterren Selectie -->
                         <div class="star-rating">
                             <span 
                                 v-for="star in 5" 
@@ -245,7 +242,6 @@ const timeDisplay = computed(() => {
                         </div>
                         <p class="rating-text" v-if="reviewRating > 0">{{ reviewRating }}/5 Sterren</p>
 
-                        <!-- Commentaar -->
                         <textarea 
                             v-model="reviewComment" 
                             placeholder="Schrijf een opmerking (optioneel)..."
@@ -258,7 +254,6 @@ const timeDisplay = computed(() => {
                         </div>
                     </div>
 
-                    <!-- 3. Bedankt bericht -->
                     <div v-else class="review-thanks">
                         <p>Bedankt voor je feedback! ⭐</p>
                         <button class="btn-back" @click="goBack">Terug naar Ritten</button>
@@ -277,14 +272,12 @@ const timeDisplay = computed(() => {
 <style scoped>
 .live-container { max-width: 600px; margin: 0 auto; padding: 20px; font-family: 'Segoe UI', sans-serif; }
 
-/* Status Bar */
 .status-bar { text-align: center; padding: 20px; border-radius: 12px; color: white; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: background 0.5s; }
 .status-bar.active { background: linear-gradient(135deg, #3182ce, #2c5282); }
 .status-bar.completed { background: linear-gradient(135deg, #38a169, #276749); }
 .pulse-icon { font-weight: bold; letter-spacing: 2px; font-size: 0.9rem; margin-bottom: 5px; animation: pulse 2s infinite; }
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-/* Route Visual */
 .main-card { background: white; padding: 30px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e2e8f0; }
 .route-visual { display: flex; justify-content: space-between; align-items: center; position: relative; }
 .point { text-align: center; z-index: 1; }
@@ -298,25 +291,21 @@ const timeDisplay = computed(() => {
 .car-emoji { position: absolute; top: -15px; left: 0%; font-size: 1.5rem; transition: left 2s ease-in-out; }
 .car-emoji.moved { left: 95%; }
 
-/* Info Cards */
 .info-card { background: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; }
 .info-card h3 { margin-top: 0; border-bottom: 1px solid #edf2f7; padding-bottom: 10px; }
 
-/* Driver Styles */
 .passenger-list { list-style: none; padding: 0; }
 .passenger-list li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed #eee; }
 .btn-end-trip { width: 100%; background: #e53e3e; color: white; padding: 15px; font-size: 1.1rem; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 20px; }
 .btn-end-trip:hover { background: #c53030; }
 .success-msg { text-align: center; color: #38a169; font-weight: bold; font-size: 1.1rem; }
 
-/* Passenger Styles */
 .driver-details { display: flex; align-items: center; gap: 15px; margin-top: 15px; }
 .avatar { font-size: 2rem; background: #edf2f7; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
 .car-info { font-size: 0.9rem; color: #4a5568; margin-top: 2px; }
 .plate { background: #ffcc00; color: black; padding: 0 4px; border-radius: 3px; font-weight: bold; font-size: 0.8rem; border: 1px solid #000; }
 .passenger-finish { text-align: center; margin-top: 20px; background: #f0fff4; padding: 20px; border-radius: 8px; border: 1px solid #c6f6d5; }
 
-/* REVIEW STYLES */
 .btn-review { width: 100%; background: #ecc94b; color: #744210; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
 .btn-review:hover { background: #d69e2e; }
 

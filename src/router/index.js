@@ -14,6 +14,7 @@ import CreateRide from '../pages/CreateRide.vue';
 import MyTrips from '../pages/MyTrips.vue';
 import LiveTrip from '@/pages/LiveTrip.vue';
 import MyReviews from '@/pages/MyReviews.vue';
+import UserReviews from '@/pages/UserReviews.vue';
 
 // ------ routes ------
 const routes = [
@@ -76,6 +77,11 @@ const routes = [
         path : '/trips/:id',
         name : 'TripDetails',
         component : TripDetails,    
+    },
+    {
+    path: '/reviews/:id',
+    name: 'UserReviews',
+    component: UserReviews,
     }
 ];
 

@@ -9,19 +9,15 @@
     const myCars = ref([]); 
     const loading = ref(true);
     
-    // Review Data (Nieuw)
     const reviews = ref([]);
     const averageRating = ref(0);
 
-    // Status berichten
     const message = ref('');
     const messageType = ref('');
 
-    // Wachtwoord velden
     const newPassword = ref('');
     const confirmPassword = ref('');
 
-    // Auto toevoegen toggle
     const isAddingCar = ref(false); 
     const carForm = ref({
         Brand: '', Model: '', LicensePlate: '', Color: '', Seats: 1
@@ -35,7 +31,7 @@
         const localUser = JSON.parse(userStr);
         await fetchUserData(localUser.UserID);
         await fetchUserCars(localUser.UserID);
-        await fetchUserReviews(localUser.UserID); // Reviews ophalen bij start
+        await fetchUserReviews(localUser.UserID); 
         loading.value = false;
     });
 
@@ -63,7 +59,6 @@
         } catch (error) { console.error("Fout bij laden auto's", error); }
     };
 
-    // NIEUW: Reviews ophalen en gemiddelde berekenen
     const fetchUserReviews = async (userId) => {
         try {
             const response = await fetch(`http://localhost:3000/reviews/user/${userId}`);
@@ -71,10 +66,9 @@
                 const data = await response.json();
                 reviews.value = data;
 
-                // Bereken gemiddelde
                 if (data.length > 0) {
                     const total = data.reduce((sum, review) => sum + review.Rating, 0);
-                    averageRating.value = (total / data.length).toFixed(1); // 1 decimaal (bv. 4.5)
+                    averageRating.value = (total / data.length).toFixed(1); 
                 } else {
                     averageRating.value = 0;
                 }
@@ -82,7 +76,40 @@
         } catch (error) { console.error("Kon reviews niet laden", error); }
     };
 
-    // --- METHODS: UPDATE PROFIEL ---
+    // ---  MULTER PICTURE ---
+    const onFileChange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('profileImage', file); 
+
+        try {
+            message.value = "Bezig met uploaden...";
+            messageType.value = "info";
+
+            const response = await fetch(`http://localhost:3000/users/${user.value.UserID}/upload-photo`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                user.value.ProfilePicture = data.user.ProfilePicture;
+                
+                localStorage.setItem('currentUser', JSON.stringify(data.user));
+                
+                showMessage("Profielfoto succesvol gewijzigd!", "success");
+            } else {
+                showMessage("Upload mislukt.", "error");
+            }
+        } catch (error) {
+            console.error(error);
+            showMessage("Serverfout bij uploaden.", "error");
+        }
+    };
+
+    // --- METHODS: UPDATE PROFILE ---
     const updateProfile = async () => {
         message.value = '';
         try {
@@ -199,6 +226,10 @@
         messageType.value = type;
         setTimeout(() => message.value = '', 4000);
     };
+
+    const handleImageError = (e) => {
+        e.target.src = 'https://cdn-icons-png.flaticon.com/512/847/847969.png';
+    };
 </script>
 
 <template>
@@ -212,18 +243,30 @@
 
         <div v-else class="content-grid">
             
-            <!-- Linker Kolom: Profiel -->
             <div class="left-col">
                 
                 <div class="card profile-card">
-                    <!-- Header met Rating -->
                     <div class="profile-header-row">
                         <h2>👤 Mijn Gegevens</h2>
                         
-                        <!-- Klikbare rating badge -->
                         <div class="rating-badge" @click="router.push('/my-reviews')" title="Bekijk details">
                             <span v-if="reviews.length > 0">⭐ {{ averageRating }} <small>({{ reviews.length }})</small></span>
                             <span v-else class="no-rating">Nog geen reviews</span>
+                        </div>
+                    </div>
+
+                    <div class="avatar-section">
+                        <img 
+                            :src="user.ProfilePicture || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'" 
+                            class="avatar-img"
+                            @error="handleImageError"
+                        >
+                        <div class="upload-controls">
+                            <label class="btn-upload">
+                                📷 Foto wijzigen
+                                <input type="file" @change="onFileChange" accept="image/*" hidden>
+                            </label>
+                            <small>Kies een bestand (.jpg, .png)</small>
                         </div>
                     </div>
 
@@ -260,22 +303,19 @@
                         <button type="submit" class="btn-save">Wijzigingen Opslaan</button>
                     </form>
 
-                    <!-- Nieuwe knop naar reviews pagina -->
                     <button @click="router.push('/my-reviews')" class="btn-view-reviews">
                         📜 Bekijk al mijn reviews
                     </button>
                 </div>
-                <!-- ACCOUNT VERWIJDEREN -->
+
                 <div class="card danger-zone">
                     <h2>⚠️ Account Verwijderen</h2>
                     <p>Wil je stoppen met Drive2Gether? Als je op onderstaande knop drukt, worden al je gegevens verwijderd.</p>
                     <button @click="deleteAccount" class="btn-danger">Account Definitief Verwijderen</button>
                 </div>
 
-                
             </div>
 
-            <!-- Rechter Kolom: Auto's & Gevarenzone -->
             <div class="right-col">
                 <div class="card car-card">
                     <div class="card-header">
@@ -302,10 +342,8 @@
                             <button @click="deleteCar(car.CarID)" class="btn-delete">🗑️</button>
                         </div>
                     </div>
-
-                    
                 </div>
-                <!-- WACHTWOORD -->
+
                 <div class="card security-card">
                     <h2>🔒 Wachtwoord</h2>
                     <div class="field">
@@ -318,9 +356,6 @@
                     </div>
                     <button @click="updatePassword" class="btn-outline">Update Wachtwoord</button>
                 </div>
-
-
-                
             </div>
 
         </div>
@@ -339,9 +374,15 @@
 
 .card { background: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
 
-/* Nieuwe Profile Header Styles */
+.avatar-section { display: flex; align-items: center; gap: 20px; margin-bottom: 25px; background: #f8fafc; padding: 15px; border-radius: 12px; }
+.avatar-img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #3182ce; background: white; }
+.upload-controls { display: flex; flex-direction: column; gap: 4px; }
+.upload-controls small { color: #718096; font-size: 0.75rem; }
+.btn-upload { background: white; border: 1px solid #cbd5e0; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85rem; transition: background 0.2s; }
+.btn-upload:hover { background: #edf2f7; }
+
 .profile-header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2f7; padding-bottom: 10px; margin-bottom: 15px; }
-.profile-header-row h2 { margin: 0; font-size: 1.2rem; color: #4a5568; }
+.profile-header-row h2 { margin: 0; font-size: 1.2rem; color: #4a5568; border: none; }
 
 .rating-badge { background: #fefcbf; color: #744210; padding: 5px 12px; border-radius: 20px; font-weight: bold; cursor: pointer; transition: background 0.2s; font-size: 0.9rem; }
 .rating-badge:hover { background: #faf089; }
@@ -350,7 +391,6 @@
 .btn-view-reviews { width: 100%; background: none; border: none; color: #3182ce; font-weight: bold; margin-top: 15px; cursor: pointer; padding: 10px; border-top: 1px dashed #e2e8f0; }
 .btn-view-reviews:hover { background: #ebf8ff; text-decoration: underline; }
 
-/* Form Styles */
 .field { margin-bottom: 15px; }
 .form-row { display: flex; gap: 15px; }
 .form-row .field { flex: 1; }
@@ -362,32 +402,29 @@ input:focus { border-color: #3182ce; outline: none; }
 .hint { font-size: 0.85rem; color: #718096; margin-bottom: 15px; font-style: italic; }
 .divider { border: 0; border-top: 1px solid #edf2f7; margin: 20px 0; }
 
-/* Buttons */
 .btn-save { width: 100%; background: #3182ce; color: white; padding: 10px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
 .btn-save:hover { background: #2b6cb0; }
 .btn-outline { width: 100%; background: white; border: 2px solid #3182ce; color: #3182ce; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; }
 .btn-outline:hover { background: #ebf8ff; }
 
-/* Danger Zone */
 .danger-zone { border: 1px solid #feb2b2; background: #fff5f5; }
-.danger-zone h2 { color: #c53030; margin-top:0; border-bottom: 1px solid #feb2b2; padding-bottom: 10px; }
+.danger-zone h2 { color: #c53030; margin-top:0; border-bottom: 1px solid #feb2b2; padding-bottom: 10px; border-top: none; }
 .danger-zone p { color: #9b2c2c; font-size: 0.9rem; }
 .btn-danger { width: 100%; background: #e53e3e; color: white; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 .btn-danger:hover { background: #c53030; }
 
-/* Car Styles */
 .card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2f7; padding-bottom: 10px; margin-bottom: 15px; }
-.card-header h2 { margin: 0; font-size: 1.2rem; color: #4a5568; }
+.card-header h2 { margin: 0; font-size: 1.2rem; color: #4a5568; border: none; }
 .btn-small { background: #3182ce; color: white; border: none; padding: 5px 12px; border-radius: 15px; cursor: pointer; font-size: 0.85rem; }
 .btn-confirm { background: #38a169; color: white; border: none; padding: 8px; border-radius: 6px; width: 100%; cursor: pointer; margin-top: 5px; }
 .car-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f7fafc; border-radius: 8px; margin-bottom: 10px; }
 .plate { background: #ecc94b; color: black; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; margin-left: 10px; border: 1px solid black; }
 .btn-delete { background: none; border: none; cursor: pointer; }
 
-/* Toast */
 .toast { position: fixed; bottom: 20px; right: 20px; padding: 15px 25px; border-radius: 8px; color: white; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideIn 0.3s ease-out; z-index: 100; }
 .toast.success { background: #38a169; }
 .toast.error { background: #e53e3e; }
+.toast.info { background: #3182ce; }
 
 @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 </style>

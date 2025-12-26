@@ -1,292 +1,375 @@
 <script setup>
-    //------ imports ------
-    import { ref, onMounted } from 'vue';
-    import { useRoute, useRouter } from 'vue-router';
+// --- Imports ---
+import { ref, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
-    // ------ activeer de router ------
-    const router = useRouter();
-    const route = useRoute();
-    //------- data -------
-    const loading = ref(true); 
+const route = useRoute();
+const router = useRouter();
 
-    const trip = ref(null);
+// --- Data ---
+const trip = ref(null);
+const loading = ref(true);
+const error = ref('');
+const isBooking = ref(false);
 
-    //------ lifecycles ------
-    onMounted(async () => {
-        const tripId = route.params.id;
-        try {
-            const response = await fetch(`http://localhost:3000/trips/${tripId}`);
-            if (!response.ok) throw new Error('Rit niet gevonden');
-            trip.value = await response.json();
-        } catch (err) {
-            console.error(err);
-            error.value = 'Kan rit details niet laden.';
-        } finally {
-            loading.value = false;
+const averageRating = ref(0);
+const totalReviews = ref(0);
+
+// --- Lifecycles ---
+onMounted(async () => {
+    const tripId = route.params.id;
+    await fetchTripDetails(tripId);
+});
+
+// --- Methods ---
+const fetchTripDetails = async (id) => {
+    try {
+        const res = await fetch(`http://localhost:3000/trips/${id}`);
+        if (res.ok) {
+            const data = await res.json();
+            trip.value = data;
+            
+            if (data.DriverID) {
+                await fetchDriverRating(data.DriverID);
+            }
+        } else {
+            error.value = "Rit kon niet worden gevonden.";
         }
-    });
-    
-    // ------- methods -------
-    const formatDate = (dateString) => {
-        if (!dateString) return '';
-        const datePart = new Date(dateString).toLocaleDateString('nl-NL', { 
-            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-        });
-        const timePart = new Date(dateString).toLocaleTimeString('nl-NL', {
-            hour: '2-digit', minute: '2-digit'
-        });
-        return { date: datePart, time: timePart }; 
-    };
+    } catch (e) {
+        console.error(e);
+        error.value = "Er is een fout opgetreden bij het laden van de details.";
+    } finally {
+        loading.value = false;
+    }
+};
 
-    const bookTrip = async () => {
-        const currentUserStr = localStorage.getItem('currentUser');
-
-        if (!currentUserStr) {
-            alert("Je moet ingelogd zijn om te boeken!");
-            router.push('/login'); 
-            return;
+const fetchDriverRating = async (driverId) => {
+    const res = await fetch(`http://localhost:3000/reviews/user/${driverId}`);
+    if (res.ok) {
+        const reviews = await res.json();
+        totalReviews.value = reviews.length;
+        if (reviews.length > 0) {
+            const sum = reviews.reduce((acc, r) => acc + r.Rating, 0);
+            averageRating.value = (sum / reviews.length).toFixed(1);
         }
+    }
+};
 
-        const currentUser = JSON.parse(currentUserStr);
-        
-        const response = await fetch('http://localhost:3000/bookings', {
+const bookTrip = async () => {
+    const userStr = localStorage.getItem('currentUser');
+    if (!userStr) {
+        alert("Je moet ingelogd zijn om een rit te boeken.");
+        router.push('/login');
+        return;
+    }
+    const user = JSON.parse(userStr);
+
+    if (user.UserID === trip.value.DriverID) {
+        alert("Je kunt niet je eigen rit boeken!");
+        return;
+    }
+
+    if (isBooking.value) return;
+    isBooking.value = true;
+
+    try {
+        const res = await fetch('http://localhost:3000/bookings', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 TripID: trip.value.TripID,
-                PassengerID: currentUser.UserID
+                PassengerID: user.UserID,
+                SeatsRequested: 1
             })
         });
-        const result = await response.json();
-        if (response.ok) {
-            router.push('/booking-success');
-        } 
-        else {
-            alert("Boeking mislukt: " + result.message);
-        }
-    };
 
-    
+        if (res.ok) {
+            router.push('/booking-success');
+        } else {
+            const data = await res.json();
+            alert(data.message || "Er ging iets mis bij het boeken.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Kon geen verbinding maken met de server.");
+    } finally {
+        isBooking.value = false;
+    }
+};
+
+const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('nl-NL', {
+        weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
+    });
+};
+
+const handleImageError = (e) => {
+    e.target.src = 'https://cdn-icons-png.flaticon.com/512/847/847969.png';
+};
 </script>
 
 <template>
-    <div class="details-container">
-        <div v-if="trip" class="content-wrapper">
+    <div class="trip-details-container">
+        <button @click="router.back()" class="btn-back">← Terug naar overzicht</button>
 
-            <header class="trip-header">
-                <div class="route-display">
-                    <h1 class="city">{{ trip.StartLocation }}</h1>
-                    <div class="arrow-container">
-                        <span class="arrow">➝</span>
-                        <span class="distance-badge">Enkele rit</span>
-                    </div>
-                    <h1 class="city">{{ trip.EndLocation }}</h1>
-                </div>
-                <div class="status-pill" :class="trip.TripStatus.toLowerCase()">
-                    {{ trip.TripStatus === 'Scheduled' ? 'Gepland' : trip.TripStatus }}
-                </div>
-            </header>
+        <div v-if="loading" class="loading">Ritgegevens laden...</div>
+        <div v-else-if="error" class="error-msg">{{ error }}</div>
 
-            <div class="info-grid">
-                
-                <div class="card trip-info">
-                    <h2>📅 Rit Informatie</h2>
-                    <div class="info-row">
-                        <span class="label">Datum</span>
-                        <span class="value">{{ formatDate(trip.DepartureTime).date }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Vertrektijd</span>
-                        <span class="value time">{{ formatDate(trip.DepartureTime).time }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Prijs per stoel</span>
-                        <span class="value price">€ {{ trip.Price }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Beschikbaarheid </span>
-                        <span class="value seats">
-                            {{ trip.SeatsOffered - trip.SeatsBooked }} van de {{ trip.SeatsOffered }} stoelen vrij
-                        </span>
-                    </div>
-                </div>
-
-                <div class="card driver-info">
-                    <h2>👤 De Chauffeur</h2>
-                    <div v-if="trip.user">
-                        <div class="avatar-placeholder">
-                            {{ trip.user.FirstName[0] }}{{ trip.user.LastName[0] }}
-                        </div>
-                        <p class="driver-name">{{ trip.user.FirstName }} {{ trip.user.LastName }}</p>
-                        
-                        <div class="contact-details">
-                            <div class="contact-item" v-if="trip.user.PhoneNumber">
-                                <span class="icon">📞</span>
-                                <a :href="'tel:' + trip.user.PhoneNumber">{{ trip.user.PhoneNumber }}</a>
-                            </div>
-                            <div class="contact-item" v-if="trip.user.Email">
-                                <span class="icon">✉️</span>
-                                <a :href="'mailto:' + trip.user.Email">{{ trip.user.Email }}</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card car-info">
-                    <h2>🚗 Het Voertuig</h2>
-                    <div v-if="trip.car">
-                        <div class="car-highlight">
-                            {{ trip.car.Brand }} {{ trip.car.Model }}
-                        </div>
-                        <div class="car-details-list">
-                            <span class="tag color" v-if="trip.car.Color">🎨 {{ trip.car.Color }}</span>
-                            <span class="tag seats">💺 {{ trip.car.Seats }} zitplaatsen</span>
-                            <span class="tag plate" v-if="trip.car.LicensePlate"> {{ trip.car.LicensePlate }}</span>
-                            <span class="tag verified" v-if="trip.car.isVerified">✅ Geverifieerd</span>
-                        </div>
-                    </div>
-                </div>
-
+        <div v-else-if="trip" class="details-card">
+            <div class="route-header">
+                <h1>{{ trip.StartLocation }} ➝ {{ trip.EndLocation }}</h1>
+                <div class="price-tag">€ {{ trip.Price }}</div>
             </div>
 
-            <div class="action-bar">
-                <button class="book-btn" @click="bookTrip">
-                    Reserveer Nu (€ {{ trip.Price }})
+            <div class="time-section">
+                <span class="icon">📅</span>
+                <span>{{ formatDate(trip.DepartureTime) }}</span>
+            </div>
+
+            <hr class="divider">
+
+            <div class="section">
+                <h3>De Chauffeur</h3>
+                <div class="driver-info">
+                    <img 
+                        :src="trip.user?.ProfilePicture || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'" 
+                        class="driver-avatar"
+                        alt="Chauffeur"
+                        @error="handleImageError"
+                    >
+                    <div class="driver-text">
+                        <div class="name">{{ trip.user?.FirstName }} {{ trip.user?.LastName }}</div>
+                        
+                        <div class="rating-row" v-if="totalReviews > 0">
+                            <span class="stars">
+                                <span v-for="n in 5" :key="n" :class="['star', n <= Math.round(averageRating) ? 'filled' : '']">★</span>
+                            </span>
+                            <span class="rating-text"><strong>{{ averageRating }}</strong> ({{ totalReviews }} reviews)</span>
+                        </div>
+                        <div v-else class="no-rating-text">Nog geen reviews</div>
+
+                        <div class="contact-info" v-if="trip.user?.Email">📧 {{ trip.user.Email }}</div>
+                        <button 
+                            @click="router.push(`/user-reviews/${trip.DriverID}`)" 
+                            class="btn-reviews-link"
+                        >
+                            Alle reviews bekijken
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="divider">
+
+            <div class="section" v-if="trip.car">
+                <h3>De Auto</h3>
+                <div class="car-info">
+                    <span class="car-name">🚗 {{ trip.car.Brand }} {{ trip.car.Model }}</span>
+                    <span class="car-plate" v-if="trip.car.LicensePlate">{{ trip.car.LicensePlate }}</span>
+                </div>
+            </div>
+
+            <div class="footer-actions">
+                <div class="seats-left">
+                    💺 {{ trip.SeatsOffered - trip.SeatsBooked }} plekken beschikbaar
+                </div>
+                <button 
+                    class="btn-book" 
+                    @click="bookTrip"
+                    :disabled="trip.SeatsOffered <= trip.SeatsBooked || isBooking"
+                >
+                    {{ isBooking ? 'Bezig...' : 'Rit Boeken' }}
                 </button>
-                <RouterLink to="/trips" class="back-link">Terug naar overzicht</RouterLink>
             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
-    .details-container {
-        max-width: 900px;
-        margin: 0 auto;
-        padding: 40px 20px;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        color: #2d3748;
-    }
-    .trip-header {
-        text-align: center;
-        margin-bottom: 40px;
-        position: relative;
-    }
-    .route-display {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 20px;
-        flex-wrap: wrap;
-    }
-    .city {
-        font-size: 2rem;
-        margin: 0;
-        color: #1a202c;
-    }
-    .arrow-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        color: #cbd5e0;
-    }
-    .arrow { font-size: 2rem; line-height: 1; }
-    .distance-badge { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
-    .status-pill {
-        display: inline-block;
-        margin-top: 15px;
-        padding: 5px 15px;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        font-weight: bold;
-        background: #edf2f7;
-        color: #718096;
-    }
-    .status-pill.scheduled { background: #e6fffa; color: #38b2ac; border: 1px solid #b2f5ea; }
-    .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 25px;
-        margin-bottom: 40px;
-    }
-    .card {
-        background: white;
-        border-radius: 12px;
-        padding: 25px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-    }
-    .card h2 {
-        font-size: 1.1rem;
-        margin-top: 0;
-        margin-bottom: 20px;
-        color: #718096;
-        border-bottom: 2px solid #edf2f7;
-        padding-bottom: 10px;
-    }
-    .info-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 12px;
-        padding-bottom: 12px;
-        border-bottom: 1px dashed #edf2f7;
-    }
-    .info-row:last-child { border-bottom: none; }
-    .label { color: #718096; font-size: 0.95rem; }
-    .value { font-weight: 600; color: #2d3748; }
-    .value.price { color: #3182ce; font-size: 1.2rem; }
-    .value.seats { color: #38a169; text-align: right;}
-    .driver-info { text-align: center; }
-    .avatar-placeholder {
-        width: 60px; height: 60px;
-        background: #ebf8ff; color: #3182ce;
-        font-size: 1.5rem; font-weight: bold;
-        border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        margin: 0 auto 15px;
-    }
-    .driver-name { font-weight: bold; font-size: 1.2rem; margin: 0 0 15px; }
-    .contact-details { text-align: left; background: #f7fafc; padding: 15px; border-radius: 8px; }
-    .contact-item { margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
-    .contact-item a { color: #4a5568; text-decoration: none; }
-    .contact-item a:hover { color: #3182ce; text-decoration: underline; }
-    .car-highlight { font-size: 1.3rem; font-weight: bold; margin-bottom: 15px; color: #2d3748; }
-    .car-details-list { display: flex; flex-wrap: wrap; gap: 10px; }
-    .tag { 
-        background: #edf2f7; padding: 5px 10px; 
-        border-radius: 6px; font-size: 0.9rem; 
-        display: inline-flex; align-items: center; gap: 5px;
-    }
-    .tag.verified { background: #f0fff4; color: #38a169; border: 1px solid #c6f6d5; width: 100%; justify-content: center; margin-top: 5px;}
-    .action-bar {
-        text-align: center;
-        max-width: 500px;
-        margin: 0 auto;
-    }
-    .book-btn {
-        width: 100%;
-        padding: 16px;
-        background-color: #3182ce;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        font-size: 1.1rem;
-        font-weight: bold;
-        cursor: pointer;
-        transition: background-color 0.2s, transform 0.1s;
-        box-shadow: 0 4px 6px rgba(49, 130, 206, 0.3);
-    }
-    .book-btn:hover { background-color: #2b6cb0; transform: translateY(-2px); }
-    .book-btn:active { transform: translateY(0); }
-    .back-link {
-        display: block;
-        margin-top: 20px;
-        color: #718096;
-        text-decoration: none;
-    }
-    .back-link:hover { color: #3182ce; }
-    .loading-state, .error-state { text-align: center; padding: 50px; font-size: 1.2rem; color: #718096; }
-    .error-state { color: #e53e3e; }
+.trip-details-container {
+    max-width: 700px;
+    margin: 40px auto;
+    padding: 0 20px;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.btn-back {
+    background: none;
+    border: none;
+    color: #3182ce;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 20px;
+}
+
+.details-card {
+    background: white;
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+.route-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.route-header h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    color: #2d3748;
+}
+
+.price-tag {
+    background: #ebf8ff;
+    color: #2b6cb0;
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.time-section {
+    color: #718096;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.divider {
+    border: 0;
+    border-top: 1px solid #edf2f7;
+    margin: 25px 0;
+}
+
+.section h3 {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    color: #a0aec0;
+    margin-bottom: 15px;
+    letter-spacing: 1px;
+}
+
+.driver-info {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.driver-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #ebf8ff;
+}
+
+.driver-text .name {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #2d3748;
+    margin-bottom: 2px;
+}
+
+.rating-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 5px;
+}
+
+.stars {
+    color: #e2e8f0;
+    font-size: 1.1rem;
+}
+
+.star.filled {
+    color: #ecc94b;
+}
+
+.rating-text {
+    font-size: 0.9rem;
+    color: #4a5568;
+}
+
+.no-rating-text {
+    font-size: 0.85rem;
+    color: #a0aec0;
+    margin-bottom: 5px;
+    font-style: italic;
+}
+
+.contact-info {
+    color: #718096;
+    font-size: 0.9rem;
+    margin-top: 4px;
+}
+
+.btn-reviews-link {
+    background: none;
+    border: none;
+    color: #3182ce;
+    padding: 0;
+    font-size: 0.9rem;
+    cursor: pointer;
+    text-decoration: underline;
+    margin-top: 5px;
+}
+
+.car-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.car-plate {
+    background: #fefcbf;
+    color: #744210;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.8rem;
+    border: 1px solid #ecc94b;
+}
+
+.footer-actions {
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.seats-left {
+    font-weight: 600;
+    color: #48bb78;
+}
+
+.btn-book {
+    background: #3182ce;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-book:hover:not(:disabled) {
+    background: #2b6cb0;
+}
+
+.btn-book:disabled {
+    background: #cbd5e0;
+    cursor: not-allowed;
+}
+
+.loading, .error-msg {
+    text-align: center;
+    padding: 40px;
+    color: #718096;
+}
 </style>

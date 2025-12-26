@@ -11,8 +11,9 @@ const loading = ref(true);
 const message = ref('');
 const messageType = ref('');
 
-// Huidige datum voor de min-attribute (zodat je niet in verleden kan klikken)
+// splits to date in ISO
 const minDate = ref(new Date().toISOString().split('T')[0]);
+
 
 const rideForm = ref({
     StartLocation: '',
@@ -23,14 +24,14 @@ const rideForm = ref({
     CarID: ''
 });
 
-// --- Lifecycle ---
+// --- Lifecycles ---
 onMounted(async () => {
-    const userStr = localStorage.getItem('currentUser');
+    const userStr = localStorage.getItem('currentUser'); // looks for Logged in user
     if (!userStr) {
         router.push('/login');
         return;
     }
-    const localUser = JSON.parse(userStr);
+    const localUser = JSON.parse(userStr); //convert text to js-object
     user.value = localUser;
 
     await fetchUserCars(localUser.UserID);
@@ -39,33 +40,26 @@ onMounted(async () => {
 
 // --- Methods ---
 const fetchUserCars = async (userId) => {
-    try {
-        const response = await fetch('http://localhost:3000/cars');
-        if (response.ok) {
-            const allCars = await response.json();
-            const usersCars = allCars.filter(car => car.OwnerID == userId);
-            myCars.value = usersCars;
+    const response = await fetch('http://localhost:3000/cars');
+    if (response.ok) {
+        const allCars = await response.json();
+        const usersCars = allCars.filter(car => car.OwnerID == userId);
+        myCars.value = usersCars;
 
-            // Auto-select als er maar 1 is
-            if (usersCars.length === 1) {
-                rideForm.value.CarID = usersCars[0].CarID;
-            }
+        if (usersCars.length === 1) {
+            rideForm.value.CarID = usersCars[0].CarID;
         }
-    } catch (error) {
-        console.error("Kon auto's niet laden", error);
     }
 };
 
 const createRide = async () => {
-    // 1. Check verplichte velden
     if (!rideForm.value.StartLocation || !rideForm.value.EndLocation || !rideForm.value.Date || !rideForm.value.Price || !rideForm.value.CarID) {
         message.value = "Vul alle velden in en selecteer een auto.";
         messageType.value = "error";
         return;
     }
-
-    // 2. Validatie: Datum/Tijd in de toekomst?
-    const selectedDateTime = new Date(`${rideForm.value.Date}T${rideForm.value.Time}`);
+    // Date in future?
+    const selectedDateTime = new Date(`${rideForm.value.Date}T${rideForm.value.Time}`); // Convert to ISO
     const now = new Date();
 
     if (selectedDateTime <= now) {
@@ -74,7 +68,6 @@ const createRide = async () => {
         return;
     }
 
-    // 3. Data voorbereiden voor backend
     const newRide = {
         DriverID: user.value.UserID,
         CarID: rideForm.value.CarID,
@@ -87,36 +80,31 @@ const createRide = async () => {
         TripStatus: 'Scheduled'
     };
 
-    try {
-        const response = await fetch('http://localhost:3000/trips', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newRide)
-        });
-
-        if (response.ok) {
-            message.value = "Rit succesvol opgeslagen!";
-            messageType.value = "success";
-            setTimeout(() => router.push('/'), 1500);
-        } else {
-            const errText = await response.text();
-            try {
-                const errJson = JSON.parse(errText);
-                message.value = errJson.message || "Fout bij opslaan";
-            } catch {
-                message.value = "Fout bij opslaan: " + errText;
-            }
-            messageType.value = "error";
+    const response = await fetch('http://localhost:3000/trips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRide)
+    });
+    if (response.ok) {
+        message.value = "Rit succesvol opgeslagen!";
+        messageType.value = "success";
+        setTimeout(() => router.push('/'), 1500);
+    } else {
+        const errText = await response.text();
+        try {
+            const errJson = JSON.parse(errText);
+            message.value = errJson.message || "Fout bij opslaan";
+        } catch {
+            message.value = "Fout bij opslaan: " + errText;
         }
-    } catch (error) {
-        message.value = "Kan geen verbinding maken met de server.";
         messageType.value = "error";
     }
+    
 };
 
 const getSelectedCarSeats = () => {
     const car = myCars.value.find(c => c.CarID == rideForm.value.CarID);
-    return car ? parseInt(car.Seats) - 1 : 1;
+    return car ? parseInt(car.Seats): 1;
 };
 </script>
 
@@ -185,18 +173,30 @@ const getSelectedCarSeats = () => {
 </template>
 
 <style scoped>
+
 .page-container {
-    display: flex; justify-content: center; padding: 40px 20px;
-    font-family: 'Segoe UI', sans-serif; background-color: #f7fafc; min-height: 80vh;
+    display: flex; 
+    justify-content: center; 
+    padding: 40px 20px;
+    background-color: #f7fafc; 
+    min-height: 80vh;
 }
 
 .card {
-    background: white; width: 100%; max-width: 600px;
-    padding: 30px; border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;
+    background: white;
+    width: 100%; 
+    max-width: 600px;
+    padding: 30px; 
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+    border: 1px solid #e2e8f0;
 }
 
-h1 { text-align: center; color: #2d3748; margin-bottom: 30px; }
+h1 { 
+    text-align: center; 
+    color: #2d3748; 
+    margin-bottom: 30px; 
+}
 
 .ride-form { display: flex; flex-direction: column; gap: 20px; }
 .form-row { display: flex; gap: 20px; }
@@ -213,14 +213,23 @@ input:focus, select:focus { border-color: #3182ce; outline: none; }
 .actions { display: flex; justify-content: flex-end; gap: 15px; margin-top: 20px; }
 
 .btn-submit {
-    background: #3182ce; color: white; border: none; padding: 12px 25px;
-    border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s;
+    background: #3182ce; 
+    color: white; 
+    border: none; 
+    padding: 12px 25px;
+    border-radius: 8px; 
+    font-weight: bold; 
+    cursor: pointer; 
 }
 .btn-submit:hover { background: #2b6cb0; }
 
 .btn-cancel {
-    background: transparent; color: #718096; border: none; padding: 12px 25px;
-    font-weight: 600; cursor: pointer;
+    background: transparent; 
+    color: #718096; 
+    border: none; 
+    padding: 12px 25px;
+    font-weight: 600; 
+    cursor: pointer;
 }
 .btn-cancel:hover { color: #2d3748; }
 
